@@ -7,3 +7,6 @@ __pycache__/
 backend/data/
 .kaggle/
 data/raw/
+model/artifacts/checkpoints/
+model/artifacts/*.onnx
+model/artifacts/*.pt

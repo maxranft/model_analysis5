@@ -54,6 +54,28 @@ To fetch just the APTOS training labels and training images:
 
 This script uses `data/raw/aptos2019/meta/train.csv` and downloads the corresponding `train_images/*.png` files into `data/raw/aptos2019/train_images/`.
 
+## Train The Model
+
+Install training dependencies:
+
+```bash
+./.venv/bin/python -m pip install -r model/requirements-train.txt
+```
+
+Run training:
+
+```bash
+./.venv/bin/python -m model.training.train --config model/training/aptos_efficientnet_b0.json
+```
+
+Export the best checkpoint to ONNX:
+
+```bash
+./.venv/bin/python -m model.export.export_onnx \
+  --checkpoint model/artifacts/checkpoints/aptos_efficientnet_b0_best.pt \
+  --output model/artifacts/model.onnx
+```
+
 ## Endpoints
 
 - `GET /health`: reports service and model readiness
