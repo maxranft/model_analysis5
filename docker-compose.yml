@@ -1,0 +1,14 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      MEDIMG_ENABLE_MOCK_MODEL: "true"
+      MEDIMG_DB_PATH: /app/data/app.db
+      MEDIMG_MODEL_PATH: /app/model/model.onnx
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+      - ./model/artifacts:/app/model
+
