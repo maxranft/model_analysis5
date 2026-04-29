@@ -13,6 +13,33 @@ from app.services.preprocessing import ImageValidationError
 router = APIRouter()
 
 
+@router.get("/")
+async def root(request: Request) -> dict:
+    """Root endpoint with API information."""
+    settings = request.app.state.settings
+    model_service = request.app.state.model_service
+    
+    base_url = str(request.base_url).rstrip("/")
+    
+    return {
+        "service": settings.app_name,
+        "version": settings.app_version,
+        "status": "online",
+        "model_status": "loaded" if model_service.loaded else "unavailable",
+        "inference_mode": model_service.mode,
+        "endpoints": {
+            "health": f"{base_url}/health",
+            "triage": f"{base_url}/triage",
+            "docs": f"{base_url}/docs",
+            "openapi": f"{base_url}/openapi.json",
+        },
+        "usage": {
+            "triage": "POST multipart/form-data with 'image' file and optional 'symptoms' text",
+            "health": "GET to check service and model readiness",
+        },
+    }
+
+
 def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -99,4 +126,3 @@ async def triage(
         repository.update_request_status(request_id, "failed")
         repository.store_error(request_id, "internal_error", str(exc), _timestamp())
         raise HTTPException(status_code=500, detail="Internal server error.") from exc
-

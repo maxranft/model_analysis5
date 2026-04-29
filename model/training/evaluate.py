@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     checkpoint = load_checkpoint(args.checkpoint, map_location="cpu")
-    config = load_config(args.config) if args.config else load_config(None)
+    config = load_config(args.config)
 
     config = replace(
         config,

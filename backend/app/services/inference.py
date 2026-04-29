@@ -38,6 +38,7 @@ class OnnxTriageModel:
         self.input_name = ""
         self.mode = "unavailable"
         self.loaded = False
+        self._label_index = {label: idx for idx, label in enumerate(self.labels)}
         self._try_initialize()
 
     def _try_initialize(self) -> None:
@@ -88,19 +89,18 @@ class OnnxTriageModel:
         contrast = float(image_tensor.std())
         logits = np.linspace(-0.2, 0.2, num=len(self.labels), dtype=np.float32)
 
-        label_index = {label: index for index, label in enumerate(self.labels)}
-        if "normal" in label_index:
-            logits[label_index["normal"]] += max(0.0, 0.6 - mean_intensity)
-        if "possible_retinopathy" in label_index:
-            logits[label_index["possible_retinopathy"]] += mean_intensity + contrast
-        if "poor_quality" in label_index:
-            logits[label_index["poor_quality"]] += max(0.0, 0.3 - contrast)
+        if "no_dr" in self._label_index:
+            logits[self._label_index["no_dr"]] += max(0.0, 0.6 - mean_intensity)
+        if "moderate_dr" in self._label_index:
+            logits[self._label_index["moderate_dr"]] += mean_intensity + contrast
+        if "severe_dr" in self._label_index:
+            logits[self._label_index["severe_dr"]] += max(0.0, 0.3 - contrast)
 
         normalized_symptoms = symptoms.lower()
-        if "blur" in normalized_symptoms and "poor_quality" in label_index:
-            logits[label_index["poor_quality"]] += 0.5
-        if "bleed" in normalized_symptoms and "possible_retinopathy" in label_index:
-            logits[label_index["possible_retinopathy"]] += 0.5
+        if "bleed" in normalized_symptoms and "proliferative_dr" in self._label_index:
+            logits[self._label_index["proliferative_dr"]] += 0.5
+        if "blur" in normalized_symptoms and "moderate_dr" in self._label_index:
+            logits[self._label_index["moderate_dr"]] += 0.3
 
         return logits
 
@@ -112,10 +112,7 @@ class OnnxTriageModel:
 
     @staticmethod
     def _triage_label_for(top_label: str) -> str:
-        lowered = top_label.lower()
-        if "normal" in lowered:
+        if top_label == "no_dr":
             return "routine_review"
-        if "quality" in lowered or "blur" in lowered:
-            return "retake_image"
         return "refer_for_review"
 

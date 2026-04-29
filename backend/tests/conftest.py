@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import sqlite3
+from collections.abc import Iterator
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -26,12 +27,14 @@ class FakeModel:
             model_version=self.model_version,
             triage_label="refer_for_review",
             scores={
-                "possible_retinopathy": 0.91,
-                "normal": 0.06,
-                "poor_quality": 0.03,
+                "no_dr": 0.03,
+                "mild_dr": 0.04,
+                "moderate_dr": 0.72,
+                "severe_dr": 0.14,
+                "proliferative_dr": 0.07,
             },
-            top_label="possible_retinopathy",
-            confidence=0.91,
+            top_label="moderate_dr",
+            confidence=0.72,
             latency_ms=4,
         )
 
@@ -47,7 +50,7 @@ def settings(tmp_path) -> Settings:
 
 
 @pytest.fixture
-def client(settings: Settings) -> TestClient:
+def client(settings: Settings) -> Iterator[TestClient]:
     app = create_app(
         settings=settings,
         model_service=FakeModel(settings.model_version),

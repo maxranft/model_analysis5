@@ -12,6 +12,11 @@ from torchvision.models import EfficientNet_B0_Weights, EfficientNet_B1_Weights,
 
 from model.training.config import TrainingConfig
 
+_MODELS = {
+    "efficientnet_b0": (efficientnet_b0, EfficientNet_B0_Weights),
+    "efficientnet_b1": (efficientnet_b1, EfficientNet_B1_Weights),
+}
+
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
@@ -32,28 +37,17 @@ def select_device(requested: str) -> torch.device:
 
 
 def build_model(config: TrainingConfig, num_classes: int) -> torch.nn.Module:
-    weights = None
-    if config.pretrained:
-        if config.model_name == "efficientnet_b0":
-            weights = EfficientNet_B0_Weights.DEFAULT
-        elif config.model_name == "efficientnet_b1":
-            weights = EfficientNet_B1_Weights.DEFAULT
-        else:
-            raise ValueError(f"Unsupported model_name: {config.model_name}")
-
+    if config.model_name not in _MODELS:
+        raise ValueError(f"Unsupported model_name: {config.model_name}")
+    factory, weights_cls = _MODELS[config.model_name]
+    weights = weights_cls.DEFAULT if config.pretrained else None
     try:
-        if config.model_name == "efficientnet_b0":
-            model = efficientnet_b0(weights=weights)
-        elif config.model_name == "efficientnet_b1":
-            model = efficientnet_b1(weights=weights)
-        else:
-            raise ValueError(f"Unsupported model_name: {config.model_name}")
+        model = factory(weights=weights)
     except Exception as exc:
         if not config.pretrained:
             raise exc
         print(f"warning: failed to load pretrained weights ({exc}); falling back to random initialization")
-        fallback = replace(config, pretrained=False)
-        return build_model(fallback, num_classes)
+        return build_model(replace(config, pretrained=False), num_classes)
 
     classifier_in = model.classifier[1].in_features
     model.classifier = torch.nn.Sequential(
@@ -91,11 +85,9 @@ def quadratic_weighted_kappa(predictions: list[int], targets: list[int], num_cla
     pred_hist = observed.sum(axis=0)
     expected = np.outer(target_hist, pred_hist) / observed.sum()
 
-    weights = np.zeros((num_classes, num_classes), dtype=np.float64)
     denom = max((num_classes - 1) ** 2, 1)
-    for row in range(num_classes):
-        for col in range(num_classes):
-            weights[row, col] = ((row - col) ** 2) / denom
+    indices = np.arange(num_classes, dtype=np.float64)
+    weights = (indices[:, None] - indices[None, :]) ** 2 / denom
 
     observed_score = np.sum(weights * observed) / observed.sum()
     expected_score = np.sum(weights * expected) / expected.sum()

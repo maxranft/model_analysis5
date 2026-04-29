@@ -20,12 +20,12 @@ def test_triage_accepts_valid_image_and_logs_prediction(client, image_bytes, db_
     assert response.status_code == 200
     body = response.json()
     assert body["triage_label"] == "refer_for_review"
-    assert body["top_findings"][0]["label"] == "possible_retinopathy"
+    assert body["top_findings"][0]["label"] == "moderate_dr"
 
     request_row = db_connection.execute("SELECT status FROM requests").fetchone()
     prediction_row = db_connection.execute("SELECT top_label FROM predictions").fetchone()
     assert request_row[0] == "completed"
-    assert prediction_row[0] == "possible_retinopathy"
+    assert prediction_row[0] == "moderate_dr"
 
 
 def test_triage_rejects_invalid_file_type(client) -> None:
@@ -53,6 +53,7 @@ def test_triage_rejects_oversized_image(settings, image_bytes) -> None:
 
     from app.db.repository import SQLiteRepository
     from app.main import create_app
+    from tests.conftest import FakeModel
 
     limited_settings = Settings(
         db_path=settings.db_path.parent / "limited.db",
@@ -62,7 +63,7 @@ def test_triage_rejects_oversized_image(settings, image_bytes) -> None:
     )
     app = create_app(
         settings=limited_settings,
-        model_service=type("FakeModel", (), {"loaded": True, "mode": "test", "predict": lambda *_args, **_kwargs: None})(),
+        model_service=FakeModel(limited_settings.model_version),
         repository=SQLiteRepository(limited_settings.db_path),
     )
     with TestClient(app) as client:

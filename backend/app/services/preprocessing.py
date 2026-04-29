@@ -13,6 +13,9 @@ class ImageValidationError(ValueError):
 
 
 class ImagePreprocessor:
+    _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    _STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
     def __init__(self, image_size: int, max_image_bytes: int) -> None:
         self.image_size = image_size
         self.max_image_bytes = max_image_bytes
@@ -32,9 +35,7 @@ class ImagePreprocessor:
         except (UnidentifiedImageError, OSError) as exc:
             raise ImageValidationError("Uploaded file is not a readable image.") from exc
 
-        imagenet_mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        imagenet_std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        normalized = (array - imagenet_mean) / imagenet_std
+        normalized = (array - self._MEAN) / self._STD
         chw = np.transpose(normalized, (2, 0, 1))
         return np.expand_dims(chw, axis=0).astype(np.float32)
 
