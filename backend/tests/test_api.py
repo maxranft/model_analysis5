@@ -58,7 +58,6 @@ def test_triage_rejects_oversized_image(settings, image_bytes) -> None:
     limited_settings = Settings(
         db_path=settings.db_path.parent / "limited.db",
         model_path=settings.model_path,
-        enable_mock_model=False,
         max_image_bytes=64,
     )
     app = create_app(

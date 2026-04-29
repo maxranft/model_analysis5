@@ -23,7 +23,6 @@ def create_app(
         model_path=settings.model_path,
         labels=settings.labels,
         model_version=settings.model_version,
-        enable_mock_model=settings.enable_mock_model,
     )
 
     @asynccontextmanager

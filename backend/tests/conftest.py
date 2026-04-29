@@ -21,8 +21,8 @@ class FakeModel:
     def __init__(self, model_version: str) -> None:
         self.model_version = model_version
 
-    def predict(self, image_tensor, symptoms: str | None = None) -> PredictionResult:
-        del image_tensor, symptoms
+    def predict(self, image_tensor) -> PredictionResult:
+        del image_tensor
         return PredictionResult(
             model_version=self.model_version,
             triage_label="refer_for_review",
@@ -44,7 +44,6 @@ def settings(tmp_path) -> Settings:
     return Settings(
         db_path=tmp_path / "test.db",
         model_path=tmp_path / "missing.onnx",
-        enable_mock_model=False,
         max_image_bytes=1024 * 1024,
     )
 

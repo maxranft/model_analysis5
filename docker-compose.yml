@@ -3,7 +3,6 @@ services:
     build:
       context: ./backend
     environment:
-      MEDIMG_ENABLE_MOCK_MODEL: "true"
       MEDIMG_DB_PATH: /app/data/app.db
       MEDIMG_MODEL_PATH: /app/model/model.onnx
     ports:
@@ -11,4 +10,30 @@ services:
     volumes:
       - ./backend/data:/app/data
       - ./model/artifacts:/app/model
+    networks:
+      - medimg-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
+  agent:
+    image: openclaw/openclaw:latest
+    environment:
+      BACKEND_URL: http://backend:8000
+      SKILL_PATH: /skills/SKILL.md
+      # Add your messaging channel tokens here:
+      # TELEGRAM_TOKEN: your_token_here
+      # WHATSAPP_TOKEN: your_token_here
+    volumes:
+      - ./agent:/skills
+    networks:
+      - medimg-net
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  medimg-net:
+    driver: bridge

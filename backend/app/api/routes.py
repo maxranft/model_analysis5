@@ -84,7 +84,7 @@ async def triage(
 
         payload = await image.read()
         tensor = preprocessor.preprocess(payload)
-        prediction = model_service.predict(tensor, symptoms=symptoms)
+        prediction = model_service.predict(tensor)
 
         top_findings = [
             Finding(label=label, score=score)

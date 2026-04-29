@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import platform
 import random
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +39,13 @@ DISPLAY = {
     "severe_dr":        "Severe DR       ",
     "proliferative_dr": "Proliferative DR",
 }
+GRADE_NAMES = {
+    0: "Grade 0 — No Diabetic Retinopathy",
+    1: "Grade 1 — Mild DR",
+    2: "Grade 2 — Moderate DR",
+    3: "Grade 3 — Severe DR",
+    4: "Grade 4 — Proliferative DR",
+}
 
 
 def load_ground_truth() -> dict[str, int]:
@@ -52,6 +61,16 @@ def available_images(gt: dict[str, int]) -> list[tuple[str, Path, int]]:
     ]
 
 
+def open_image(path: Path) -> None:
+    system = platform.system()
+    if system == "Darwin":
+        subprocess.Popen(["open", str(path)])
+    elif system == "Linux":
+        subprocess.Popen(["xdg-open", str(path)])
+    elif system == "Windows":
+        subprocess.Popen(["explorer", str(path)])
+
+
 def predict(client: httpx.Client, path: Path) -> dict:
     with path.open("rb") as f:
         resp = client.post("/triage", files={"image": (path.name, f, "image/png")}, timeout=15)
@@ -65,18 +84,20 @@ def bar(score: float, width: int = 20) -> str:
 
 
 def print_detail(n: int, total: int, id_code: str, result: dict, actual_grade: int) -> None:
-    pred_label = result["top_findings"][0]["label"]
+    pred_label  = result["top_findings"][0]["label"]
     actual_label = GRADE_TO_LABEL[actual_grade]
-    correct = LABEL_TO_GRADE.get(pred_label) == actual_grade
-    marker = "✓" if correct else "✗"
+    correct     = LABEL_TO_GRADE.get(pred_label) == actual_grade
+    marker      = "✓" if correct else "✗"
 
-    print(f"\n  [{n}/{total}]  {id_code}  {marker}")
-    print(f"  {'Predicted':<10}: {DISPLAY.get(pred_label, pred_label)}  "
+    print(f"\n  ┌─ [{n}/{total}]  {id_code}  {marker}")
+    print(f"  │  Predicted : {DISPLAY.get(pred_label, pred_label)}  "
           f"{result['confidence']*100:.1f}%  {bar(result['confidence'])}")
-    print(f"  {'Actual':<10}: {DISPLAY.get(actual_label, actual_label)}")
+    print(f"  │")
+    print(f"  │  ACTUAL GRADE: {GRADE_NAMES[actual_grade]}")
+    print(f"  └─ Image opened in viewer — compare and enter your label below.")
     print()
-    print("  Grades: 0=No DR  1=Mild  2=Moderate  3=Severe  4=Proliferative")
-    print("  [Enter] accept ground truth   [0-4] override   [s] skip")
+    print("  0 = No DR   1 = Mild   2 = Moderate   3 = Severe   4 = Proliferative")
+    print("  [Enter] accept actual grade   [0-4] override   [s] skip")
     print("  > ", end="", flush=True)
 
 
@@ -139,11 +160,11 @@ def main() -> None:
         results = []
         for i, (id_code, path, actual_grade) in enumerate(sample, 1):
             try:
-                result      = predict(client, path)
-                pred_label  = result["top_findings"][0]["label"]
-                pred_grade  = LABEL_TO_GRADE.get(pred_label, -1)
-                correct     = pred_grade == actual_grade
-                marker      = "✓" if correct else "✗"
+                result     = predict(client, path)
+                pred_label = result["top_findings"][0]["label"]
+                pred_grade = LABEL_TO_GRADE.get(pred_label, -1)
+                correct    = pred_grade == actual_grade
+                marker     = "✓" if correct else "✗"
                 results.append({
                     "id_code":      id_code,
                     "path":         path,
@@ -175,7 +196,7 @@ def main() -> None:
         for pattern, count in sorted(grade_errors.items(), key=lambda x: -x[1]):
             print(f"    {pattern}  (×{count})")
 
-    # ── Step 3: interactive review ───────────────────────────────
+    # ── Step 3: interactive review of incorrect predictions ──────
     incorrect = [r for r in results if not r["correct"]]
     feedback_records: list[dict] = []
     now = datetime.now(UTC).isoformat()
@@ -185,8 +206,10 @@ def main() -> None:
     else:
         print(f"\n  {'─' * 50}")
         print(f"  Reviewing {n_incorrect} incorrect prediction(s).")
+        print("  Each image will open automatically so you can inspect it.\n")
 
         for i, r in enumerate(incorrect, 1):
+            open_image(r["path"])
             print_detail(i, n_incorrect, r["id_code"], r["result"], r["actual_grade"])
             confirmed_grade = ask_correction(r["actual_grade"])
             if confirmed_grade is None:
@@ -204,7 +227,7 @@ def main() -> None:
                 "correct":         False,
             })
 
-    # Save correct predictions too — useful as confirmed training signal
+    # Save correct predictions as confirmed training signal
     for r in results:
         if r["correct"]:
             label = GRADE_TO_LABEL[r["actual_grade"]]
