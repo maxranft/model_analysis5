@@ -23,12 +23,9 @@ if ! "$PYTHON_BIN" -c "import fastapi, uvicorn, PIL, numpy" >/dev/null 2>&1; the
   "$PIP_BIN" install -r "$ROOT_DIR/backend/requirements.txt"
 fi
 
-if [[ -z "${MEDIMG_ENABLE_MOCK_MODEL:-}" ]]; then
-  if [[ -f "${MEDIMG_MODEL_PATH:-$ROOT_DIR/model/artifacts/model.onnx}" ]]; then
-    export MEDIMG_ENABLE_MOCK_MODEL=0
-  else
-    export MEDIMG_ENABLE_MOCK_MODEL=1
-  fi
+MODEL_PATH="${MEDIMG_MODEL_PATH:-$ROOT_DIR/model/artifacts/model.onnx}"
+if [[ ! -f "$MODEL_PATH" ]]; then
+  echo "WARNING: model not found at $MODEL_PATH — inference will be unavailable until a model is trained."
 fi
 
 choose_port() {
@@ -44,7 +41,7 @@ PORT_TO_USE="$(choose_port "$DEFAULT_PORT")"
 echo "Starting Medical Imaging AI MVP"
 echo "Host: $HOST"
 echo "Port: $PORT_TO_USE"
-echo "Mock model: $MEDIMG_ENABLE_MOCK_MODEL"
+echo "Model: $MODEL_PATH"
 echo "Docs: http://$HOST:$PORT_TO_USE/docs"
 
 exec "$PYTHON_BIN" -m uvicorn app.main:app \

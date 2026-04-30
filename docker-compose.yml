@@ -18,21 +18,21 @@ services:
       timeout: 5s
       retries: 3
 
-  agent:
-    image: openclaw/openclaw:latest
-    environment:
-      BACKEND_URL: http://backend:8000
-      SKILL_PATH: /skills/SKILL.md
-      # Add your messaging channel tokens here:
-      # TELEGRAM_TOKEN: your_token_here
-      # WHATSAPP_TOKEN: your_token_here
-    volumes:
-      - ./agent:/skills
-    networks:
-      - medimg-net
-    depends_on:
-      backend:
-        condition: service_healthy
+  # Messaging agent — uncomment and set the correct image + tokens when ready.
+  # agent:
+  #   image: YOUR_AGENT_IMAGE_HERE
+  #   environment:
+  #     BACKEND_URL: http://backend:8000
+  #     SKILL_PATH: /skills/SKILL.md
+  #     TELEGRAM_TOKEN: your_token_here
+  #     # WHATSAPP_TOKEN: your_token_here
+  #   volumes:
+  #     - ./agent:/skills
+  #   networks:
+  #     - medimg-net
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
 
 networks:
   medimg-net:

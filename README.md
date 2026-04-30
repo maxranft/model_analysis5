@@ -1,6 +1,15 @@
-# Medical Imaging AI MVP
+This model's objective is to combine different layers to produce a correct diagnosis for DR. 
 
-This repository contains a lightweight MVP for medical image triage. The working core is a FastAPI backend that validates uploaded images, preprocesses them for model inference, logs requests to SQLite, and returns a constrained triage response.
+Provide an image to an Openclaw sandbox via Whatsapp, and receive feedback. Use of the model requires heavy conifiguration, and is not recomended for recreational use. 
+
+The goal of this project was to experiment with different engineering concepts, and build skills in AI modeling. 
+
+*** This is not medical advice, and should not be consulted as such. 
+
+-Max
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+Below is a AI generated summary of the project.
 
 ## Repository Layout
 
