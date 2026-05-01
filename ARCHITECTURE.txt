@@ -1,0 +1,313 @@
+================================================================================
+  MEDICAL IMAGING AI MVP — ARCHITECTURE & REPLICATION GUIDE
+  Diabetic Retinopathy Grading  |  APTOS 2019  |  EfficientNet-B0
+================================================================================
+
+
+QUICK START (full pipeline)
+────────────────────────────────────────────────────────────────────────────────
+  1.  python3 -m venv .venv && source .venv/bin/activate
+  2.  pip install -r backend/requirements.txt
+  3.  pip install -r model/requirements-train.txt
+  4.  bash scripts/download_aptos_train_images.sh     # ~11 GB
+  5.  python -m model.training.train                  # train
+  6.  python -m model.export.export_onnx \
+        --checkpoint model/artifacts/checkpoints/aptos_efficientnet_b0_best.pt \
+        --output     model/artifacts/model.onnx       # export
+  7.  bash scripts/start_project.sh                   # serve on :8000
+  8.  bash scripts/predict.sh <image.png>             # single prediction
+  9.  python scripts/review.py                        # batch review (50 images)
+  10. python scripts/accuracy_plot.py                 # visualise results
+
+
+================================================================================
+  LAYER 1 — DATA
+================================================================================
+
+Source
+  Dataset : APTOS 2019 Blindness Detection (Kaggle)
+  Labels  : 5-class severity (diagnosis column in CSV)
+              0 = No DR          (no diabetic retinopathy)
+              1 = Mild DR
+              2 = Moderate DR
+              3 = Severe DR
+              4 = Proliferative DR
+
+Layout on disk
+  data/raw/aptos2019/
+    meta/train.csv          id_code, diagnosis
+    train_images/           <id_code>.png  (3662 images, ~3 MB each)
+
+Key files
+  model/training/dataset.py
+    load_records()          reads CSV, skips missing images
+    stratified_split()      per-class train/val split (default 80/20)
+    build_transforms()      train: resize → flip → rotate → jitter → normalise
+                            val:   resize → normalise only
+    class_weights()         inverse-frequency weights for loss/sampler
+    build_loaders()         returns DataLoader pair + split statistics
+
+Normalisation (ImageNet stats — required by pretrained backbone)
+  mean = [0.485, 0.456, 0.406]
+  std  = [0.229, 0.224, 0.225]
+
+Class imbalance handling (choose one via config)
+  use_weighted_sampler = true   WeightedRandomSampler on the train loader
+  use_weighted_sampler = false  weighted CrossEntropyLoss instead
+
+
+================================================================================
+  LAYER 2 — TRAINING
+================================================================================
+
+Entry point
+  python -m model.training.train [--config path.json] [--epochs N]
+                                 [--batch-size N] [--learning-rate F]
+
+Config file  (model/training/config.py  →  TrainingConfig)
+  Generate a template:  python -m model.training.train --save-config-template my.json
+  Key fields:
+    model_name              efficientnet_b0 | efficientnet_b1
+    pretrained              true  (downloads ImageNet weights)
+    freeze_backbone         true  (train head only for first N epochs)
+    unfreeze_at_epoch       3     (then fine-tune whole network)
+    input_size              224
+    batch_size              8
+    epochs                  10
+    learning_rate           1e-3  (head)
+    backbone_learning_rate  1e-4  (backbone, after unfreeze)
+    weight_decay            1e-4
+    dropout                 0.3
+    val_fraction            0.2
+    early_stopping_patience 4
+    min_epochs              3
+    label_smoothing         0.0
+
+Model architecture  (model/training/common.py  →  build_model())
+  Base       : EfficientNet-B0 (torchvision, pretrained on ImageNet)
+  Head       : Dropout(0.3) → Linear(1280 → 5)
+  Frozen     : features.* during head-only phase
+  Unfrozen   : all parameters after unfreeze_at_epoch
+
+Training loop  (model/training/train.py)
+  Optimiser  : AdamW with separate LR groups (head vs backbone)
+  Loss       : CrossEntropyLoss (weighted or label-smoothed)
+  Scheduler  : ReduceLROnPlateau (mode=max, factor=0.5, patience=1)
+  Metric     : Quadratic Weighted Kappa (QWK) — primary
+               Accuracy — secondary
+  Checkpoint : saved whenever val_qwk improves
+  Early stop : if no improvement for `early_stopping_patience` epochs
+               (but never before min_epochs)
+
+Outputs
+  model/artifacts/checkpoints/aptos_efficientnet_b0_best.pt   PyTorch checkpoint
+  model/artifacts/checkpoints/metrics.json                     full training history
+
+QWK formula  (model/training/common.py  →  quadratic_weighted_kappa())
+  Penalises large grade gaps more than small ones — appropriate for
+  ordinal DR severity. Scores: 0 = random, 1 = perfect, <0 = worse than random.
+  Best achieved so far: ~0.75 on the validation split.
+
+
+================================================================================
+  LAYER 3 — EXPORT
+================================================================================
+
+Entry point
+  python -m model.export.export_onnx \
+    --checkpoint model/artifacts/checkpoints/aptos_efficientnet_b0_best.pt \
+    --output     model/artifacts/model.onnx \
+    --opset      18
+
+What it does  (model/export/export_onnx.py)
+  1. Loads PyTorch checkpoint
+  2. Reconstructs model architecture from saved config inside checkpoint
+  3. Loads state_dict weights
+  4. Exports to ONNX with dynamic batch axis
+  Input shape  : [batch, 3, 224, 224]  float32
+  Output shape : [batch, 5]            logits (raw, not softmax)
+
+
+================================================================================
+  LAYER 4 — SERVING
+================================================================================
+
+Runtime  (backend/)
+  FastAPI + Uvicorn
+  SQLite for request/prediction logging
+  ONNX Runtime for inference (CPU)
+
+Key files
+  backend/app/services/inference.py   OnnxTriageModel
+    _try_initialize()   loads model.onnx if present; marks loaded=False if not
+    predict()           preprocessed tensor → softmax → top label + confidence
+    _triage_label()     no_dr → "routine_review", anything else → "refer_for_review"
+
+  backend/app/services/preprocessing.py   ImagePreprocessor
+    preprocess()   bytes → PIL → resize(224,224) → normalise → NCHW float32 array
+
+  backend/app/api/routes.py
+    POST /triage    accepts image (+ optional symptoms, channel)
+                    returns triage_label, confidence, top_findings[0..2]
+    GET  /health    reports model_loaded, inference_mode, model_version
+    GET  /          API info + endpoint index
+
+  backend/app/core/config.py   Settings
+    MEDIMG_DB_PATH          path to SQLite file
+    MEDIMG_MODEL_PATH       path to model.onnx
+    MEDIMG_MODEL_VERSION    version string embedded in responses
+    MEDIMG_IMAGE_SIZE       resize target (default 224)
+    MEDIMG_MAX_IMAGE_BYTES  upload limit (default 20 MB)
+    MEDIMG_LABELS           comma-separated label order (must match ONNX output)
+
+Label order (must match ONNX output classes exactly)
+  no_dr, mild_dr, moderate_dr, severe_dr, proliferative_dr
+
+Start server (local dev)
+  bash scripts/start_project.sh
+
+Start full stack (Docker)
+  docker-compose up --build
+  Services: backend (:8000), agent (messaging bot — configure tokens first)
+
+
+================================================================================
+  LAYER 5 — HUMAN-IN-THE-LOOP FEEDBACK
+================================================================================
+
+Batch review script  (scripts/review.py)
+  Usage:  python scripts/review.py [--n 50] [--seed N]
+  Steps:
+    1. Loads ground-truth grades from data/raw/aptos2019/meta/train.csv
+    2. Sends each image to POST /triage
+    3. Prints accuracy summary + common mistake patterns
+    4. For each incorrect prediction: opens the image in the system viewer,
+       shows predicted grade and actual grade, prompts for confirmation
+    5. Appends all results to data/feedback/corrections.csv
+
+Corrections CSV schema  (data/feedback/corrections.csv)
+  timestamp, id_code,
+  predicted_grade, predicted_label,
+  actual_grade, actual_label,
+  confirmed_grade, confirmed_label,
+  confidence, correct
+
+  confirmed_grade = actual_grade if user accepted, or override if user typed 0-4
+  correct         = (predicted_grade == actual_grade)
+
+Retraining with corrections
+  python -m model.training.train
+  (future: plumb confirmed_grade back into the training dataset)
+
+
+================================================================================
+  LAYER 6 — VISUALISATION
+================================================================================
+
+Script  (scripts/accuracy_plot.py)
+  Usage:
+    python scripts/accuracy_plot.py            # interactive windows
+    python scripts/accuracy_plot.py --daily    # group by calendar day
+    python scripts/accuracy_plot.py --save     # save PNGs to data/feedback/
+
+  Generates three charts:
+
+  1. accuracy_over_time.png
+     Top panel : accuracy per review run (bubble size ∝ sample count)
+                 3-run rolling average + overall average line
+     Bot panel : average model confidence per run
+     X axis    : Run 1, Run 2, … with date/time label
+
+  2. confusion_matrix.png
+     5×5 grid (actual grade vs predicted grade)
+     Row-normalised: each cell shows % of actual-grade images predicted as that class
+     Dark diagonal = good; off-diagonal = where the model makes mistakes
+
+  3. per_grade_accuracy.png
+     Bar chart of accuracy for each DR grade (0–4)
+     Colour scale: green (high) → yellow → red (low)
+     Dashed line = overall average
+
+  Open all at once:
+    open data/feedback/accuracy_over_time.png \
+         data/feedback/confusion_matrix.png   \
+         data/feedback/per_grade_accuracy.png
+
+
+================================================================================
+  DEPENDENCY SUMMARY
+================================================================================
+
+Backend / scripts  (backend/requirements.txt)
+  fastapi, uvicorn, python-multipart   API server
+  pillow, numpy                        image preprocessing
+  onnxruntime                          ONNX inference
+  httpx                                review.py HTTP client
+  matplotlib                           accuracy_plot.py charts
+  pytest                               test suite
+
+Training  (model/requirements-train.txt)
+  torch, torchvision                   model training
+  onnx, onnxscript                     ONNX export
+  tqdm                                 progress bars
+
+Infrastructure
+  Docker + docker-compose              containerised deployment
+  SQLite                               request/prediction log (no external DB)
+
+
+================================================================================
+  FILE MAP
+================================================================================
+
+  backend/
+    app/
+      api/routes.py               HTTP endpoints
+      core/config.py              Settings dataclass + env vars
+      db/repository.py            SQLite read/write
+      main.py                     FastAPI app factory
+      schemas/triage.py           Pydantic request/response models
+      services/
+        inference.py              OnnxTriageModel
+        preprocessing.py          ImagePreprocessor
+    tests/
+      conftest.py                 FakeModel + fixtures
+      test_api.py                 endpoint tests
+
+  model/
+    training/
+      config.py                   TrainingConfig dataclass
+      dataset.py                  AptosDataset, loaders, transforms
+      common.py                   model builder, QWK, checkpointing
+      train.py                    training loop entry point
+      aptos_efficientnet_b0.json  reference config snapshot
+    export/
+      export_onnx.py              checkpoint → model.onnx
+    artifacts/
+      model.onnx                  serving model (generated)
+      checkpoints/
+        aptos_efficientnet_b0_best.pt   best training checkpoint
+        metrics.json                    training history
+
+  scripts/
+    start_project.sh              start local dev server
+    predict.sh                    single-image CLI prediction
+    review.py                     batch review + feedback collection
+    accuracy_plot.py              accuracy, confusion, per-grade charts
+    download_aptos_train_images.sh  dataset download helper
+
+  data/
+    raw/aptos2019/
+      meta/train.csv              ground-truth labels
+      train_images/               <id_code>.png
+    feedback/
+      corrections.csv             human review feedback log
+      accuracy_over_time.png      (generated)
+      confusion_matrix.png        (generated)
+      per_grade_accuracy.png      (generated)
+
+  agent/
+    SKILL.md                      OpenClaw messaging skill definition
+
+  docker-compose.yml              backend + agent services
+================================================================================
