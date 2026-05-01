@@ -53,6 +53,30 @@ def load_records(csv_path: Path, image_dir: Path) -> tuple[list[ImageRecord], in
     return records, missing
 
 
+def load_corrections(corrections_path: Path) -> dict[str, int]:
+    """Read confirmed grades from review feedback. Last entry wins per image."""
+    if not corrections_path.exists():
+        return {}
+    overrides: dict[str, int] = {}
+    with corrections_path.open(newline="") as f:
+        for row in csv.DictReader(f):
+            overrides[row["id_code"]] = int(row["confirmed_grade"])
+    return overrides
+
+
+def apply_corrections(records: list[ImageRecord], overrides: dict[str, int]) -> tuple[list[ImageRecord], int]:
+    """Override APTOS labels with human-confirmed grades. Returns (updated records, count changed)."""
+    changed = 0
+    updated = []
+    for r in records:
+        if r.id_code in overrides and overrides[r.id_code] != r.label:
+            updated.append(ImageRecord(id_code=r.id_code, label=overrides[r.id_code], path=r.path))
+            changed += 1
+        else:
+            updated.append(r)
+    return updated, changed
+
+
 def stratified_split(records: list[ImageRecord], val_fraction: float, seed: int) -> tuple[list[ImageRecord], list[ImageRecord]]:
     rng = random.Random(seed)
     buckets: dict[int, list[ImageRecord]] = defaultdict(list)
@@ -77,8 +101,9 @@ def build_transforms(config: TrainingConfig) -> tuple[transforms.Compose, transf
         [
             transforms.Resize((config.input_size, config.input_size)),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(degrees=10),
-            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.05),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(degrees=180),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05),
             transforms.ToTensor(),
             normalize,
         ]
@@ -105,6 +130,14 @@ def class_weights(records: list[ImageRecord], num_classes: int) -> torch.Tensor:
 
 def build_loaders(config: TrainingConfig) -> tuple[DataLoader, DataLoader, dict[str, int | dict[int, int]]]:
     records, missing = load_records(config.data_csv, config.image_dir)
+
+    corrections_applied = 0
+    if config.corrections_csv is not None:
+        overrides = load_corrections(config.corrections_csv)
+        if overrides:
+            records, corrections_applied = apply_corrections(records, overrides)
+            print(f"corrections: {len(overrides)} reviewed images, {corrections_applied} labels updated")
+
     train_records, val_records = stratified_split(records, config.val_fraction, config.seed)
     train_transform, eval_transform = build_transforms(config)
 
@@ -136,6 +169,7 @@ def build_loaders(config: TrainingConfig) -> tuple[DataLoader, DataLoader, dict[
     stats = {
         "records_total": len(records),
         "records_missing": missing,
+        "corrections_applied": corrections_applied,
         "train_size": len(train_records),
         "val_size": len(val_records),
         "train_class_counts": dict(Counter(record.label for record in train_records)),

@@ -16,14 +16,15 @@ class TrainingConfig:
     image_dir: Path = field(default_factory=lambda: repo_root() / "data/raw/aptos2019/train_images")
     output_dir: Path = field(default_factory=lambda: repo_root() / "model/artifacts/checkpoints")
     metrics_path: Path = field(default_factory=lambda: repo_root() / "model/artifacts/checkpoints/metrics.json")
+    corrections_csv: Path | None = field(default_factory=lambda: repo_root() / "data/feedback/corrections.csv")
     model_name: str = "efficientnet_b0"
     pretrained: bool = True
     freeze_backbone: bool = True
     unfreeze_at_epoch: int = 3
     input_size: int = 224
     batch_size: int = 8
-    epochs: int = 10
-    learning_rate: float = 1e-3
+    epochs: int = 25
+    learning_rate: float = 5e-4
     backbone_learning_rate: float = 1e-4
     weight_decay: float = 1e-4
     dropout: float = 0.3
@@ -31,9 +32,9 @@ class TrainingConfig:
     seed: int = 42
     num_workers: int = 0
     device: str = "auto"
-    label_smoothing: float = 0.0
-    early_stopping_patience: int = 4
-    min_epochs: int = 3
+    label_smoothing: float = 0.1
+    early_stopping_patience: int = 7
+    min_epochs: int = 5
     use_weighted_sampler: bool = True
     class_names: list[str] = field(default_factory=lambda: ["0", "1", "2", "3", "4"])
     mean: list[float] = field(default_factory=lambda: [0.485, 0.456, 0.406])
@@ -48,6 +49,7 @@ class TrainingConfig:
         data = asdict(self)
         for key in ("data_csv", "image_dir", "output_dir", "metrics_path"):
             data[key] = str(data[key])
+        data["corrections_csv"] = str(data["corrections_csv"]) if data["corrections_csv"] else None
         data["checkpoint_path"] = str(self.checkpoint_path)
         return data
 
@@ -62,6 +64,9 @@ def load_config(config_path: str | Path | None = None) -> TrainingConfig:
     for key in ("data_csv", "image_dir", "output_dir", "metrics_path"):
         if key in payload:
             payload[key] = Path(payload[key])
+    if "corrections_csv" in payload and payload["corrections_csv"] is not None:
+        payload["corrections_csv"] = Path(payload["corrections_csv"])
+    payload.pop("checkpoint_path", None)
     return TrainingConfig(**payload)
 
 
