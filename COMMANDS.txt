@@ -134,7 +134,8 @@ Group by calendar day instead of per session:
 Open saved charts:
   open data/feedback/accuracy_over_time.png \
        data/feedback/confusion_matrix.png   \
-       data/feedback/per_grade_accuracy.png
+       data/feedback/per_grade_accuracy.png \
+       data/feedback/training_history.png
 
 
 ── TESTING ──────────────────────────────────────────────────────────────────

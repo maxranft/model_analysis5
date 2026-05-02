@@ -47,6 +47,7 @@ def export_model(checkpoint_path: Path, output_path: Path, opset: int) -> float:
         output_names=["logits"],
         dynamic_axes={"image": {0: "batch_size"}, "logits": {0: "batch_size"}},
         opset_version=opset,
+        dynamo=False,
     )
     return float(checkpoint.get("best_qwk", 0.0))
 

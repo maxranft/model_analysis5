@@ -7,3 +7,4 @@ onnxruntime==1.24.4
 pytest==8.4.1
 httpx==0.28.1
 matplotlib==3.10.9
+twilio==9.6.3

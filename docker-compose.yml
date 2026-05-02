@@ -5,6 +5,10 @@ services:
     environment:
       MEDIMG_DB_PATH: /app/data/app.db
       MEDIMG_MODEL_PATH: /app/model/model.onnx
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     ports:
       - "8000:8000"
     volumes:
@@ -18,22 +22,18 @@ services:
       timeout: 5s
       retries: 3
 
-  # Messaging agent — uncomment and set the correct image + tokens when ready.
-  # agent:
-  #   image: YOUR_AGENT_IMAGE_HERE
-  #   environment:
-  #     BACKEND_URL: http://backend:8000
-  #     SKILL_PATH: /skills/SKILL.md
-  #     TELEGRAM_TOKEN: your_token_here
-  #     # WHATSAPP_TOKEN: your_token_here
-  #   volumes:
-  #     - ./agent:/skills
-  #   networks:
-  #     - medimg-net
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - medimg-net
 
 networks:
   medimg-net:
     driver: bridge
+
+volumes:
+  ollama_data:

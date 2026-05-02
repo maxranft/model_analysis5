@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.routes import router
 from app.core.config import Settings
 from app.db.repository import SQLiteRepository
+from app.services.explainer import OllamaExplainer
 from app.services.inference import OnnxTriageModel
 from app.services.preprocessing import ImagePreprocessor
 
@@ -19,6 +20,7 @@ def create_app(
     settings = settings or Settings()
     repository = repository or SQLiteRepository(settings.db_path)
     preprocessor = ImagePreprocessor(settings.image_size, settings.max_image_bytes)
+    explainer = OllamaExplainer(settings.ollama_url, settings.ollama_model)
     model_service = model_service or OnnxTriageModel(
         model_path=settings.model_path,
         labels=settings.labels,
@@ -32,6 +34,7 @@ def create_app(
         app.state.repository = repository
         app.state.preprocessor = preprocessor
         app.state.model_service = model_service
+        app.state.explainer = explainer
         yield
 
     app = FastAPI(

@@ -3,12 +3,18 @@
 #!Run with: open data/feedback/accuracy_over_time.png
 
 """
-Plot model accuracy from the feedback CSV.
+Plot model accuracy and training history.
 
 Usage:
   python scripts/accuracy_plot.py            # all charts, one point per session
   python scripts/accuracy_plot.py --daily    # group by calendar day
   python scripts/accuracy_plot.py --save     # save PNGs instead of displaying
+
+Charts produced:
+  accuracy_over_time.png  — review session accuracy over runs
+  confusion_matrix.png    — predicted vs actual DR grade
+  per_grade_accuracy.png  — accuracy broken down by grade
+  training_history.png    — epoch-level val QWK + best QWK per training run
 """
 from __future__ import annotations
 
@@ -19,9 +25,11 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT         = Path(__file__).resolve().parents[1]
-FEEDBACK_CSV = ROOT / "data/feedback/corrections.csv"
-OUTPUT_DIR   = ROOT / "data/feedback"
+ROOT           = Path(__file__).resolve().parents[1]
+FEEDBACK_CSV   = ROOT / "data/feedback/corrections.csv"
+METRICS_JSON   = ROOT / "model/artifacts/checkpoints/metrics.json"
+EXPERIMENT_LOG = ROOT / "model/artifacts/experiment_log.csv"
+OUTPUT_DIR     = ROOT / "data/feedback"
 
 GRADE_LABELS = ["No DR", "Mild", "Moderate", "Severe", "Proliferative"]
 GRADE_KEYS   = ["no_dr", "mild_dr", "moderate_dr", "severe_dr", "proliferative_dr"]
@@ -80,7 +88,6 @@ def plot_accuracy_over_time(
 ) -> None:
     import matplotlib.pyplot as plt
 
-    timestamps  = [p[0] for p in points]
     accuracies  = [p[1] for p in points]
     counts      = [p[2] for p in points]
     confidences = [p[3] for p in points]
@@ -90,8 +97,7 @@ def plot_accuracy_over_time(
     roll_x = [reps[i] for i, v in enumerate(roll) if v is not None]
     roll_y = [v for v in roll if v is not None]
 
-    fmt = "%m-%d %H:%M" if mode == "session" else "%Y-%m-%d"
-    tick_labels = [f"Run {i}\n{ts.strftime(fmt)}" for i, ts in zip(reps, timestamps)]
+    tick_labels = [f"Run {i}" for i in reps]
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
     fig.suptitle("Model Accuracy by Review Run", fontsize=14, fontweight="bold")
@@ -222,6 +228,90 @@ def plot_per_grade_accuracy(records: list[dict], save: bool) -> None:
     _finish(fig, "per_grade_accuracy.png", save)
 
 
+def plot_training_history(save: bool) -> None:
+    import json
+
+    import matplotlib.pyplot as plt
+
+    has_metrics = METRICS_JSON.exists()
+    has_log     = EXPERIMENT_LOG.exists()
+
+    if not has_metrics and not has_log:
+        print("  No training history found — skipping training history chart.")
+        print(f"  (looked for {METRICS_JSON.relative_to(ROOT)} and {EXPERIMENT_LOG.relative_to(ROOT)})")
+        return
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+    fig.suptitle("Training History — QWK", fontsize=14, fontweight="bold")
+    ax_epoch, ax_runs = axes
+
+    # Top panel: epoch-by-epoch QWK for the most recent training run
+    if has_metrics:
+        with METRICS_JSON.open() as f:
+            summary = json.load(f)
+        history = summary.get("history", [])
+        if history:
+            epochs   = [e["epoch"] for e in history]
+            val_qwk  = [float(e["val"]["qwk"]) for e in history]
+            train_acc = [float(e["train"]["accuracy"]) for e in history]
+            best_qwk  = max(val_qwk)
+            best_ep   = epochs[val_qwk.index(best_qwk)]
+
+            ax_epoch.plot(epochs, val_qwk, color="#4C72B0", linewidth=2,
+                          marker="o", markersize=5, label="Val QWK")
+            ax_epoch.axhline(y=best_qwk, color="#DD8452", linestyle="--",
+                             linewidth=1.2, alpha=0.8,
+                             label=f"Best QWK {best_qwk:.4f} (epoch {best_ep})")
+            ax_epoch.axvline(x=best_ep, color="#DD8452", linestyle=":",
+                             linewidth=1, alpha=0.6)
+            ax_epoch.fill_between(epochs, val_qwk, alpha=0.08, color="#4C72B0")
+            ax_epoch.set_ylabel("Quadratic Weighted Kappa")
+            ax_epoch.set_ylim(0, 1.05)
+            ax_epoch.set_xlabel("Epoch")
+            ax_epoch.legend(fontsize=9, loc="lower right")
+            ax_epoch.grid(axis="y", alpha=0.3)
+            ax_epoch.set_title("Latest Run — Epoch-level Val QWK", fontsize=11)
+        else:
+            ax_epoch.text(0.5, 0.5, "No epoch history in metrics.json",
+                          ha="center", va="center", transform=ax_epoch.transAxes)
+    else:
+        ax_epoch.text(0.5, 0.5, "metrics.json not found",
+                      ha="center", va="center", transform=ax_epoch.transAxes)
+
+    # Bottom panel: best QWK per training run from experiment log
+    if has_log:
+        with EXPERIMENT_LOG.open() as f:
+            runs = list(csv.DictReader(f))
+        if runs:
+            run_nums = list(range(1, len(runs) + 1))
+            run_qwk  = [float(r["best_qwk"]) for r in runs]
+            run_labels = [f"Run {i}" for i in run_nums]
+            colors = ["#DD8452" if q == max(run_qwk) else "#4C72B0" for q in run_qwk]
+            bars = ax_runs.bar(run_nums, run_qwk, color=colors,
+                               edgecolor="white", linewidth=0.8, zorder=3)
+            ax_runs.set_xticks(run_nums)
+            ax_runs.set_xticklabels(run_labels, fontsize=8)
+            ax_runs.set_ylabel("Best QWK")
+            ax_runs.set_ylim(0, 1.05)
+            ax_runs.set_xlabel("Training Run")
+            ax_runs.grid(axis="y", alpha=0.3, zorder=0)
+            ax_runs.set_title("Best QWK per Training Run", fontsize=11)
+            for bar, q in zip(bars, run_qwk):
+                ax_runs.text(bar.get_x() + bar.get_width() / 2, q + 0.01,
+                             f"{q:.4f}", ha="center", va="bottom", fontsize=8)
+        else:
+            ax_runs.text(0.5, 0.5, "No training runs in experiment_log.csv",
+                         ha="center", va="center", transform=ax_runs.transAxes)
+    else:
+        ax_runs.text(0.5, 0.5,
+                     "experiment_log.csv not found\n(appears after next retrain)",
+                     ha="center", va="center", transform=ax_runs.transAxes,
+                     fontsize=10)
+
+    plt.tight_layout()
+    _finish(fig, "training_history.png", save)
+
+
 def _finish(fig, filename: str, save: bool) -> None:
     import matplotlib.pyplot as plt
 
@@ -262,6 +352,7 @@ def main() -> None:
     plot_accuracy_over_time(points, mode, args.save)
     plot_confusion_matrix(records, args.save)
     plot_per_grade_accuracy(records, args.save)
+    plot_training_history(args.save)
 
 
 if __name__ == "__main__":

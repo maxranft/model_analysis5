@@ -34,3 +34,7 @@ class Settings:
     labels: tuple[str, ...] = field(default_factory=lambda: _parse_labels(os.getenv("MEDIMG_LABELS")))
     allowed_mime_types: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp", "image/tiff")
     disclaimer: str = "This result is for triage support only and is not a medical diagnosis."
+    twilio_account_sid: str = field(default_factory=lambda: os.getenv("TWILIO_ACCOUNT_SID", ""))
+    twilio_auth_token: str  = field(default_factory=lambda: os.getenv("TWILIO_AUTH_TOKEN", ""))
+    ollama_url: str         = field(default_factory=lambda: os.getenv("OLLAMA_URL", "http://localhost:11434"))
+    ollama_model: str       = field(default_factory=lambda: os.getenv("OLLAMA_MODEL", "llama3.2"))
