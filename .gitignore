@@ -13,3 +13,4 @@ model/artifacts/*.onnx.data
 model/artifacts/*.pt
 model/artifacts/training.log
 data/feedback/*.png
+.env

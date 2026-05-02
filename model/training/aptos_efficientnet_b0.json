@@ -23,6 +23,7 @@
   "early_stopping_patience": 7,
   "min_epochs": 5,
   "use_weighted_sampler": true,
+  "hard_case_boost": 3.0,
   "class_names": ["0", "1", "2", "3", "4"],
   "mean": [0.485, 0.456, 0.406],
   "std": [0.229, 0.224, 0.225],

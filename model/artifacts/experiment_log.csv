@@ -1,0 +1,2 @@
+timestamp,best_qwk,best_epoch,epochs_run,train_size,val_size,corrections_applied,device,model_name,elapsed_seconds
+2026-05-02T21:54:32.138063+00:00,0.8804,7,14,2931,731,0,mps,efficientnet_b0,4953

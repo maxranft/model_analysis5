@@ -53,6 +53,18 @@ def load_records(csv_path: Path, image_dir: Path) -> tuple[list[ImageRecord], in
     return records, missing
 
 
+def load_hard_cases(corrections_path: Path) -> set[str]:
+    """Return id_codes of images the model previously got wrong."""
+    if not corrections_path.exists():
+        return set()
+    hard: set[str] = set()
+    with corrections_path.open(newline="") as f:
+        for row in csv.DictReader(f):
+            if row.get("correct", "").strip().lower() == "false":
+                hard.add(row["id_code"])
+    return hard
+
+
 def load_corrections(corrections_path: Path) -> dict[str, int]:
     """Read confirmed grades from review feedback. Last entry wins per image."""
     if not corrections_path.exists():
@@ -146,8 +158,18 @@ def build_loaders(config: TrainingConfig) -> tuple[DataLoader, DataLoader, dict[
 
     sampler = None
     if config.use_weighted_sampler:
+        hard_cases: set[str] = set()
+        if config.corrections_csv is not None and config.hard_case_boost > 1.0:
+            hard_cases = load_hard_cases(config.corrections_csv)
+
         weights = class_weights(train_records, len(config.class_names))
-        sample_weights = [float(weights[record.label]) for record in train_records]
+        sample_weights = [
+            float(weights[r.label]) * (config.hard_case_boost if r.id_code in hard_cases else 1.0)
+            for r in train_records
+        ]
+        if hard_cases:
+            boosted = sum(1 for r in train_records if r.id_code in hard_cases)
+            print(f"hard-case boost {config.hard_case_boost}x applied to {boosted} training images")
         sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
 
     train_loader = DataLoader(

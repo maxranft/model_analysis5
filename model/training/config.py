@@ -36,6 +36,7 @@ class TrainingConfig:
     early_stopping_patience: int = 7
     min_epochs: int = 5
     use_weighted_sampler: bool = True
+    hard_case_boost: float = 3.0
     class_names: list[str] = field(default_factory=lambda: ["0", "1", "2", "3", "4"])
     mean: list[float] = field(default_factory=lambda: [0.485, 0.456, 0.406])
     std: list[float] = field(default_factory=lambda: [0.229, 0.224, 0.225])
