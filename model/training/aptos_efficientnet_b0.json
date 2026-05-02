@@ -18,7 +18,7 @@
   "val_fraction": 0.2,
   "seed": 42,
   "num_workers": 0,
-  "device": "auto",
+  "device": "mps",
   "label_smoothing": 0.1,
   "early_stopping_patience": 7,
   "min_epochs": 5,

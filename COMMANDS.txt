@@ -37,12 +37,24 @@ Generate a fresh config template:
   python -m model.training.train --save-config-template my_config.json
 
 
-── EXPORT ───────────────────────────────────────────────────────────────────
+── EXPORT & VERSIONING ───────────────────────────────────────────────────────
 
-Export trained checkpoint to ONNX (required before serving):
+Export trained checkpoint to ONNX (saves versioned copy automatically):
   python -m model.export.export_onnx \
     --checkpoint model/artifacts/checkpoints/aptos_efficientnet_b0_best.pt \
     --output     model/artifacts/model.onnx
+
+Roll back to a previous model version (interactive menu):
+  bash scripts/rollback.sh
+
+Roll back to a specific version number:
+  bash scripts/rollback.sh 2
+
+View all saved versions:
+  ls model/artifacts/versions/
+
+View experiment history across all training runs:
+  cat model/artifacts/experiment_log.csv
 
 
 ── SERVING ──────────────────────────────────────────────────────────────────

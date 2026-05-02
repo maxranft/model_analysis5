@@ -1,4 +1,4 @@
-This model's objective is to combine different layers to produce a correct diagnosis for DR. 
+This model's objective is to combine different layers and make a diagnosis for DR. 
 
 Provide an image to an Openclaw sandbox via Whatsapp, and receive feedback. Use of the model requires heavy conifiguration, and is not recomended for recreational use. 
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 import time
 
@@ -205,6 +207,7 @@ def main() -> None:
         "history": history,
     }
     save_metrics(summary, config.metrics_path)
+    _append_experiment_log(summary, config)
 
     if best_payload is None:
         raise RuntimeError("Training finished without producing a checkpoint.")
@@ -212,6 +215,32 @@ def main() -> None:
     checkpoint = load_checkpoint(config.checkpoint_path, map_location="cpu")
     print(f"saved checkpoint: {config.checkpoint_path}")
     print(f"best_qwk: {checkpoint['best_qwk']:.4f}")
+
+
+def _append_experiment_log(summary: dict, config: TrainingConfig) -> None:
+    log_path = Path(summary["checkpoint_path"]).parent.parent / "experiment_log.csv"
+    fields = ["timestamp", "best_qwk", "best_epoch", "epochs_run",
+              "train_size", "val_size", "corrections_applied",
+              "device", "model_name", "elapsed_seconds"]
+    row = {
+        "timestamp":           datetime.now(UTC).isoformat(),
+        "best_qwk":            f"{summary['best_qwk']:.4f}",
+        "best_epoch":          summary["best_epoch"],
+        "epochs_run":          len(summary["history"]),
+        "train_size":          summary["data"]["train_size"],
+        "val_size":            summary["data"]["val_size"],
+        "corrections_applied": summary["data"].get("corrections_applied", 0),
+        "device":              summary["device"],
+        "model_name":          config.model_name,
+        "elapsed_seconds":     f"{summary['elapsed_seconds']:.0f}",
+    }
+    write_header = not log_path.exists()
+    with log_path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+    print(f"experiment log → {log_path}")
 
 
 if __name__ == "__main__":
