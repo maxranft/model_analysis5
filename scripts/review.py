@@ -132,6 +132,10 @@ def main() -> None:
     parser.add_argument("--n", type=int, default=50, help="Images to review (default 50)")
     parser.add_argument("--host", default="http://127.0.0.1:8001")
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--grade-all", action="store_true",
+                        help="Manually grade every image, not just incorrect ones")
+    parser.add_argument("--no-grade", action="store_true",
+                        help="Skip manual grading — measure accuracy only (used by improve.sh)")
     args = parser.parse_args()
 
     gt   = load_ground_truth()
@@ -196,21 +200,28 @@ def main() -> None:
         for pattern, count in sorted(grade_errors.items(), key=lambda x: -x[1]):
             print(f"    {pattern}  (×{count})")
 
-    # ── Step 3: interactive review of incorrect predictions ──────
-    incorrect = [r for r in results if not r["correct"]]
+    # ── Step 3: interactive review ───────────────────────────────
+    if args.no_grade:
+        to_review = []
+    elif args.grade_all:
+        to_review = results
+    else:
+        to_review = [r for r in results if not r["correct"]]
     feedback_records: list[dict] = []
     now = datetime.now(UTC).isoformat()
 
-    if not incorrect:
-        print("\n  All predictions matched ground truth — nothing to correct.")
+    if not to_review:
+        if not args.no_grade:
+            print("\n  All predictions matched ground truth — nothing to correct.")
     else:
+        review_label = "all" if args.grade_all else "incorrect"
         print(f"\n  {'─' * 50}")
-        print(f"  Reviewing {n_incorrect} incorrect prediction(s).")
+        print(f"  Reviewing {len(to_review)} {review_label} prediction(s).")
         print("  Each image will open automatically so you can inspect it.\n")
 
-        for i, r in enumerate(incorrect, 1):
+        for i, r in enumerate(to_review, 1):
             open_image(r["path"])
-            print_detail(i, n_incorrect, r["id_code"], r["result"], r["actual_grade"])
+            print_detail(i, len(to_review), r["id_code"], r["result"], r["actual_grade"])
             confirmed_grade = ask_correction(r["actual_grade"])
             if confirmed_grade is None:
                 continue
@@ -224,12 +235,13 @@ def main() -> None:
                 "confirmed_grade": confirmed_grade,
                 "confirmed_label": GRADE_TO_LABEL[confirmed_grade],
                 "confidence":      r["confidence"],
-                "correct":         False,
+                "correct":         r["correct"],
             })
 
-    # Save correct predictions as confirmed training signal
+    # Auto-save any results not manually reviewed
+    reviewed_ids = {rec["id_code"] for rec in feedback_records}
     for r in results:
-        if r["correct"]:
+        if r["id_code"] not in reviewed_ids:
             label = GRADE_TO_LABEL[r["actual_grade"]]
             feedback_records.append({
                 "timestamp":       now,
@@ -241,7 +253,7 @@ def main() -> None:
                 "confirmed_grade": r["actual_grade"],
                 "confirmed_label": label,
                 "confidence":      r["confidence"],
-                "correct":         True,
+                "correct":         r["correct"],
             })
 
     if feedback_records:

@@ -2,7 +2,7 @@ This model's objective is to combine different layers to produce a correct diagn
 
 Provide an image to an Openclaw sandbox via Whatsapp, and receive feedback. Use of the model requires heavy conifiguration, and is not recomended for recreational use. 
 
-The goal of this project was to experiment with different engineering concepts, and build skills in AI modeling. 
+The goal of this project was to experiment with different engineering concepts, and build skills in predictive AI modeling. 
 
 *** This is not medical advice, and should not be consulted as such. 
 

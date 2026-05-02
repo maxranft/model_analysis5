@@ -1,0 +1,170 @@
+================================================================================
+  COMMAND REFERENCE — Medical Imaging AI MVP
+================================================================================
+
+
+── SETUP ────────────────────────────────────────────────────────────────────
+
+Create virtualenv and install all dependencies:
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r backend/requirements.txt
+  pip install -r model/requirements-train.txt
+
+Download APTOS 2019 dataset (~11 GB, requires Kaggle auth):
+  bash scripts/download_aptos_train_images.sh
+
+
+── TRAINING ─────────────────────────────────────────────────────────────────
+
+Train in the foreground:
+  python -m model.training.train --config model/training/aptos_efficientnet_b0.json
+
+Train in the background (logs to file):
+  nohup python -m model.training.train --config model/training/aptos_efficientnet_b0.json \
+    > model/artifacts/training.log 2>&1 &
+
+Watch training progress live:
+  tail -f model/artifacts/training.log
+
+Check if training is still running:
+  jobs
+
+Override specific settings without editing the config:
+  python -m model.training.train --epochs 30 --batch-size 16 --learning-rate 0.0003
+
+Generate a fresh config template:
+  python -m model.training.train --save-config-template my_config.json
+
+
+── EXPORT ───────────────────────────────────────────────────────────────────
+
+Export trained checkpoint to ONNX (required before serving):
+  python -m model.export.export_onnx \
+    --checkpoint model/artifacts/checkpoints/aptos_efficientnet_b0_best.pt \
+    --output     model/artifacts/model.onnx
+
+
+── SERVING ──────────────────────────────────────────────────────────────────
+
+Start local dev server (auto-installs deps, picks open port):
+  bash scripts/start_project.sh
+
+Start with Docker (full stack — backend + messaging agent):
+  docker-compose up --build
+
+Stop Docker services:
+  docker-compose down
+
+Check server health:
+  curl http://127.0.0.1:8000/health
+
+Open interactive API docs in browser:
+  open http://127.0.0.1:8000/docs
+
+
+── PREDICTION ───────────────────────────────────────────────────────────────
+
+Single image prediction from terminal:
+  bash scripts/predict.sh path/to/image.png
+
+Single image prediction against a different host:
+  bash scripts/predict.sh path/to/image.png http://127.0.0.1:8001
+
+
+── FULL IMPROVEMENT LOOP (automated) ────────────────────────────────────────
+
+Run the complete grade → retrain → export → measure → plot cycle:
+  bash scripts/improve.sh
+
+With custom image count:
+  bash scripts/improve.sh --n 20
+
+Manually grade every image (not just wrong ones):
+  bash scripts/improve.sh --grade-all
+
+
+── REVIEW & FEEDBACK LOOP (manual steps) ────────────────────────────────────
+
+Run 50-image batch review (compares model vs ground truth, opens each image):
+  python scripts/review.py
+
+Manually grade every image (not just wrong ones):
+  python scripts/review.py --grade-all
+
+Custom number of images:
+  python scripts/review.py --n 20
+
+Reproducible run (fixed random seed):
+  python scripts/review.py --seed 42
+
+Point at a different server:
+  python scripts/review.py --host http://127.0.0.1:8001
+
+Feedback is saved automatically to:
+  data/feedback/corrections.csv
+
+Retrain with corrections applied:
+  python -m model.training.train --config model/training/aptos_efficientnet_b0.json
+
+
+── VISUALISATION ────────────────────────────────────────────────────────────
+
+Generate and display all charts (interactive windows):
+  python scripts/accuracy_plot.py
+
+Save charts as PNG files:
+  python scripts/accuracy_plot.py --save
+
+Group by calendar day instead of per session:
+  python scripts/accuracy_plot.py --daily --save
+
+Open saved charts:
+  open data/feedback/accuracy_over_time.png \
+       data/feedback/confusion_matrix.png   \
+       data/feedback/per_grade_accuracy.png
+
+
+── TESTING ──────────────────────────────────────────────────────────────────
+
+Run all tests:
+  pytest backend/tests/
+
+Run with output visible:
+  pytest backend/tests/ -v
+
+Run a specific test:
+  pytest backend/tests/test_api.py::test_triage_accepts_valid_image_and_logs_prediction
+
+
+── GIT & GITHUB ─────────────────────────────────────────────────────────────
+
+Check status:
+  git status
+
+Stage and commit:
+  git add <files>
+  git commit -m "your message"
+
+Push to GitHub:
+  git push Main main
+
+Pull latest from GitHub:
+  git pull Main main
+
+View recent commits:
+  git log --oneline -10
+
+
+── METRICS & LOGS ───────────────────────────────────────────────────────────
+
+View training history (loss, accuracy, QWK per epoch):
+  cat model/artifacts/checkpoints/metrics.json | python -m json.tool
+
+Count feedback records collected:
+  wc -l data/feedback/corrections.csv
+
+View recent feedback entries:
+  tail -20 data/feedback/corrections.csv
+
+================================================================================
