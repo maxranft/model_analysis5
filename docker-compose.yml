@@ -17,10 +17,27 @@ services:
     networks:
       - medimg-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 3
+
+  openclaw:
+    image: alpine/openclaw
+    environment:
+      BACKEND_URL: http://backend:8000
+      OLLAMA_BASE_URL: http://ollama:11434
+      OPENCLAW_CONFIG_PATH: /skills/openclaw.json
+    ports:
+      - "18789:18789"
+    volumes:
+      - ./agent:/skills
+      - openclaw_state:/home/node/.openclaw
+    networks:
+      - medimg-net
+    depends_on:
+      backend:
+        condition: service_healthy
 
   ollama:
     image: ollama/ollama
@@ -37,3 +54,4 @@ networks:
 
 volumes:
   ollama_data:
+  openclaw_state:
