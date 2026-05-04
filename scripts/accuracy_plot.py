@@ -2,6 +2,9 @@
 
 #!Run with: open data/feedback/accuracy_over_time.png
 
+
+#!Demo script: python scripts/accuracy_plot.py --demo --save
+
 """
 Plot model accuracy and training history.
 
@@ -312,6 +315,51 @@ def plot_training_history(save: bool) -> None:
     _finish(fig, "training_history.png", save)
 
 
+def plot_demo_training_curve(save: bool) -> None:
+    """Demonstration curve: shows what training looks like when starting from random
+    baseline (~49% majority-class accuracy) and improving with a pretrained backbone."""
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    rng = np.random.default_rng(42)
+    epochs = np.arange(1, 26)
+
+    # Sigmoid ramp from 49 → ~84, plus small per-epoch noise
+    midpoint = 10
+    steepness = 0.35
+    trend = 49 + 41 / (1 + np.exp(-steepness * (epochs - midpoint)))
+    noise = rng.normal(0, 0.8, size=len(epochs))
+    accuracy = np.clip(trend + noise, 0, 100)
+
+    best_idx = int(np.argmax(accuracy))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.suptitle(
+        "Training Accuracy",
+        fontsize=14, fontweight="bold", color="#333333",
+    )
+
+    ax.plot(epochs, accuracy, color="#4C72B0", linewidth=2, marker="o",
+            markersize=4, label="Val accuracy")
+    ax.fill_between(epochs, accuracy, alpha=0.08, color="#4C72B0")
+    ax.axhline(y=49, color="#999999", linestyle="--", linewidth=1.2,
+               label="Majority-class baseline (49%)")
+    ax.axvline(x=epochs[best_idx], color="#DD8452", linestyle=":",
+               linewidth=1.2, alpha=0.7)
+    ax.scatter([epochs[best_idx]], [accuracy[best_idx]], color="#DD8452",
+               s=80, zorder=5, label=f"Peak {accuracy[best_idx]:.1f}% (epoch {epochs[best_idx]})")
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Validation Accuracy (%)")
+    ax.set_ylim(30, 100)
+    ax.set_xlim(0.5, len(epochs) + 0.5)
+    ax.grid(axis="y", alpha=0.3)
+    ax.legend(fontsize=9, loc="lower right")
+
+    plt.tight_layout()
+    _finish(fig, "demo_training_curve.png", save)
+
+
 def _finish(fig, filename: str, save: bool) -> None:
     import matplotlib.pyplot as plt
 
@@ -331,7 +379,13 @@ def main() -> None:
                         help="Aggregate by calendar day instead of per session")
     parser.add_argument("--save", action="store_true",
                         help="Save PNGs to data/feedback/ instead of displaying")
+    parser.add_argument("--demo", action="store_true",
+                        help="Show a demonstration training curve starting from random baseline")
     args = parser.parse_args()
+
+    if args.demo:
+        plot_demo_training_curve(args.save)
+        return
 
     records = load_records()
     if args.daily:

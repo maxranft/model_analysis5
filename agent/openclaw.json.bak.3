@@ -6,15 +6,12 @@
         "*"
       ],
       "groupPolicy": "disabled",
-      "mediaMaxMb": 20,
-      "sendReadReceipts": true,
-      "replyToMode": "first",
       "enabled": true
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.4.29",
-    "lastTouchedAt": "2026-05-03T14:24:08.253Z"
+    "lastTouchedVersion": "2026.4.14",
+    "lastTouchedAt": "2026-05-03T17:27:58.398Z"
   },
   "gateway": {
     "auth": {
@@ -34,5 +31,20 @@
     "lastRunVersion": "2026.4.29",
     "lastRunCommand": "configure",
     "lastRunMode": "local"
+  },
+  "plugins": {
+    "entries": {
+      "whatsapp": {
+        "enabled": true
+      },
+      "ollama": {
+        "enabled": true
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "ollama/llama3.2"
+    }
   }
 }

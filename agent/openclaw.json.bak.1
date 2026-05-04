@@ -6,12 +6,15 @@
         "*"
       ],
       "groupPolicy": "disabled",
-      "enabled": true
+      "enabled": true,
+      "configWrites": true,
+      "sendReadReceipts": true,
+      "selfChatMode": true
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.4.14",
-    "lastTouchedAt": "2026-05-03T15:19:07.310Z"
+    "lastTouchedVersion": "2026.4.29",
+    "lastTouchedAt": "2026-05-04T02:19:16.431Z"
   },
   "gateway": {
     "auth": {
@@ -36,7 +39,15 @@
     "entries": {
       "whatsapp": {
         "enabled": true
+      },
+      "ollama": {
+        "enabled": true
       }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "ollama/llama3.2"
     }
   }
 }

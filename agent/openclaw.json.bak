@@ -6,12 +6,15 @@
         "*"
       ],
       "groupPolicy": "disabled",
-      "enabled": true
+      "enabled": true,
+      "configWrites": true,
+      "sendReadReceipts": true,
+      "selfChatMode": true
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.5.2",
-    "lastTouchedAt": "2026-05-03T17:27:36.068Z"
+    "lastTouchedVersion": "2026.4.29",
+    "lastTouchedAt": "2026-05-04T02:19:34.492Z"
   },
   "gateway": {
     "auth": {
@@ -35,6 +38,9 @@
   "plugins": {
     "entries": {
       "whatsapp": {
+        "enabled": true
+      },
+      "ollama": {
         "enabled": true
       }
     }

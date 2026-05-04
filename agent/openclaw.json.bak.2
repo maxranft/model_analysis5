@@ -5,12 +5,13 @@
       "allowFrom": [
         "*"
       ],
-      "groupPolicy": "disabled"
+      "groupPolicy": "disabled",
+      "enabled": true
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.4.29",
-    "lastTouchedAt": "2026-05-03T14:27:28.889Z"
+    "lastTouchedVersion": "2026.4.14",
+    "lastTouchedAt": "2026-05-03T17:27:58.398Z"
   },
   "gateway": {
     "auth": {
@@ -35,7 +36,15 @@
     "entries": {
       "whatsapp": {
         "enabled": true
+      },
+      "ollama": {
+        "enabled": true
       }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "ollama/llama3.2"
     }
   }
 }

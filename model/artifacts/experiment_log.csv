@@ -2,3 +2,4 @@ timestamp,best_qwk,best_epoch,epochs_run,train_size,val_size,corrections_applied
 2026-05-02T21:54:32.138063+00:00,0.8804,7,14,2931,731,0,mps,efficientnet_b0,4953
 2026-05-03T04:17:07.129055+00:00,0.8924,11,18,2931,731,0,mps,efficientnet_b0,8197
 2026-05-03T13:06:11.211345+00:00,0.8924,11,18,2931,731,0,mps,efficientnet_b0,8161
+2026-05-03T22:28:41.296503+00:00,0.8937,14,21,2931,731,0,mps,efficientnet_b0,9805

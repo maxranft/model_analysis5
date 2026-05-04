@@ -6,12 +6,15 @@
         "*"
       ],
       "groupPolicy": "disabled",
-      "enabled": true
+      "enabled": false,
+      "configWrites": false,
+      "sendReadReceipts": false,
+      "selfChatMode": false
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.4.14",
-    "lastTouchedAt": "2026-05-03T17:27:58.398Z"
+    "lastTouchedVersion": "2026.4.29",
+    "lastTouchedAt": "2026-05-04T02:20:01.541Z"
   },
   "gateway": {
     "auth": {

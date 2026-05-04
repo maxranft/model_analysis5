@@ -148,7 +148,7 @@ def main() -> None:
         criterion_kwargs["weight"] = class_weights(train_loader.dataset.records, len(config.class_names)).to(device)
     criterion = torch.nn.CrossEntropyLoss(**criterion_kwargs)
     optimizer = build_optimizer(model, config, backbone_trainable=not config.freeze_backbone)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=4)
 
     best_qwk = float("-inf")
     best_payload: dict[str, object] | None = None
@@ -161,7 +161,7 @@ def main() -> None:
         if config.freeze_backbone and epoch == config.unfreeze_at_epoch:
             unfreeze_backbone(model)
             optimizer = build_optimizer(model, config, backbone_trainable=True)
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=1)
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=4)
 
         train_metrics = train_one_epoch(model, train_loader, optimizer, criterion, device)
         val_metrics = evaluate(model, val_loader, criterion, device, len(config.class_names))

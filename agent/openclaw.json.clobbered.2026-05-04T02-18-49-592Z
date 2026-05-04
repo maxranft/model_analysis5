@@ -2,19 +2,20 @@
   "channels": {
     "whatsapp": {
       "dmPolicy": "open",
-      "allowFrom": [
-        "*"
-      ],
+      "allowFrom": [],
       "groupPolicy": "disabled",
-      "enabled": false,
-      "configWrites": false,
-      "sendReadReceipts": false,
-      "selfChatMode": false
+      "enabled": true,
+      "healthMonitor": {
+        "enabled": true
+      },
+      "selfChatMode": true,
+      "sendReadReceipts": true,
+      "configWrites": true
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.4.29",
-    "lastTouchedAt": "2026-05-04T02:20:01.541Z"
+    "lastTouchedVersion": "2026.4.14",
+    "lastTouchedAt": "2026-05-04T02:18:48.241Z"
   },
   "gateway": {
     "auth": {
@@ -39,15 +40,10 @@
     "entries": {
       "whatsapp": {
         "enabled": true
-      },
-      "ollama": {
-        "enabled": true
       }
     }
   },
   "agents": {
-    "defaults": {
-      "model": "ollama/llama3.2"
-    }
+    "defaults": {}
   }
 }
