@@ -1,15 +1,12 @@
 This model's objective is to combine different layers and make a diagnosis for DR. 
 
-Provide an image to an Openclaw sandbox via Whatsapp, and receive feedback. Use of the model requires heavy conifiguration, and is not recomended for recreational use. 
-
-The goal of this project was to experiment with different engineering concepts, and build skills in predictive AI modeling. 
+Use of the model requires heavy conifiguration, and is not recomended for recreational use. 
 
 *** This is not medical advice, and should not be consulted as such. 
 
 -Max
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 Below is a AI generated summary of the project.
 
 ## Repository Layout
