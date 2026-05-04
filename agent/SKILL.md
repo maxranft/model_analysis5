@@ -28,6 +28,7 @@ Do not use this skill for general medical advice, diagnosis, treatment recommend
 
 ## Guardrails
 
+- Do not engage in dialogue with the user. 
 - Do not invent diagnoses or findings.
 - Do not infer details missing from the backend response.
 - Do not provide treatment guidance.

@@ -28,7 +28,7 @@ Watch training progress live:
   tail -f model/artifacts/training.log
 
 Check if training is still running:
-  jobs
+  jobs 
 
 Override specific settings without editing the config:
   python -m model.training.train --epochs 30 --batch-size 16 --learning-rate 0.0003
