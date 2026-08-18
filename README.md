@@ -1,13 +1,10 @@
 This model's objective is to combine different layers and make a diagnosis for DR. 
-
 Use of the model requires heavy conifiguration, and is not recomended for recreational use. 
-
-*** This is not medical advice, and should not be consulted as such. 
+*This is not medical advice, and should not be consulted as such. 
 
 -Max
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-Below is a AI generated summary of the project.
+/////////////
 
 ## Repository Layout
 
